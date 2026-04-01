@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    environment {
+        APP_DIR = "/var/www/projects/insight/insight"
+    }
+
     stages {
 
         stage('Checkout') {
@@ -9,26 +13,43 @@ pipeline {
             }
         }
 
-        stage('Install') {
+        stage('Install Dependencies') {
             steps {
-                sh 'npm install'
+                sh '''
+                export PATH=/usr/bin:$PATH
+                node -v
+                npm -v
+                npm install
+                '''
             }
         }
 
         stage('Build') {
             steps {
-                sh 'npm run build'
+                sh '''
+                export PATH=/usr/bin:$PATH
+                npm run build
+                '''
             }
         }
 
         stage('Deploy') {
             steps {
                 sh '''
-                rm -rf /var/www/projects/insight/insight/*
-                cp -r * /var/www/projects/insight/insight
+                export PATH=/usr/bin:$PATH
 
-                cd /var/www/projects/insight/insight
+                # Clean old app
+                rm -rf $APP_DIR/*
+
+                # Copy new build
+                cp -r * $APP_DIR
+
+                cd $APP_DIR
+
+                # Restart or start app
                 pm2 restart insight-app || pm2 start npm --name "insight-app" -- start
+
+                pm2 save
                 '''
             }
         }
