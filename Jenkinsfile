@@ -3,9 +3,31 @@ pipeline {
 
     environment {
         APP_DIR = "/var/www/projects/insight/insight"
+        NODE_VERSION = "20"
+        NVM_DIR = "/var/lib/jenkins/.nvm"
     }
 
     stages {
+
+        stage('Setup Node') {
+            steps {
+                sh '''
+                export NVM_DIR="$NVM_DIR"
+
+                if [ ! -d "$NVM_DIR" ]; then
+                  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+                fi
+
+                . "$NVM_DIR/nvm.sh"
+
+                nvm install $NODE_VERSION
+                nvm use $NODE_VERSION
+
+                node -v
+                npm -v
+                '''
+            }
+        }
 
         stage('Checkout') {
             steps {
@@ -16,9 +38,10 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 sh '''
-                export PATH=/usr/bin:$PATH
-                node -v
-                npm -v
+                export NVM_DIR="$NVM_DIR"
+                . "$NVM_DIR/nvm.sh"
+                nvm use $NODE_VERSION
+
                 npm install
                 '''
             }
@@ -27,7 +50,10 @@ pipeline {
         stage('Build') {
             steps {
                 sh '''
-                export PATH=/usr/bin:$PATH
+                export NVM_DIR="$NVM_DIR"
+                . "$NVM_DIR/nvm.sh"
+                nvm use $NODE_VERSION
+
                 npm run build
                 '''
             }
@@ -36,19 +62,16 @@ pipeline {
         stage('Deploy') {
             steps {
                 sh '''
-                export PATH=/usr/bin:$PATH
+                export NVM_DIR="$NVM_DIR"
+                . "$NVM_DIR/nvm.sh"
+                nvm use $NODE_VERSION
 
-                # Clean old app
                 rm -rf $APP_DIR/*
-
-                # Copy new build
                 cp -r * $APP_DIR
 
                 cd $APP_DIR
 
-                # Restart or start app
                 pm2 restart insight-app || pm2 start npm --name "insight-app" -- start
-
                 pm2 save
                 '''
             }
