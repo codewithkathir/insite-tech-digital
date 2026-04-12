@@ -2,12 +2,25 @@ pipeline {
     agent any
 
     environment {
-        APP_DIR = "/var/www/projects/insight/insight"
+        APP_DIR = "/var/www/insights/insite-tech-digital"
         NODE_VERSION = "20"
         NVM_DIR = "/var/lib/jenkins/.nvm"
+        APP_NAME = "insite-tech-app"
     }
 
     stages {
+
+        stage('Cleanup Workspace') {
+            steps {
+                deleteDir()
+            }
+        }
+
+        stage('Checkout Code') {
+            steps {
+                git branch: 'main', url: 'https://github.com/codewithkathir/insight.git'
+            }
+        }
 
         stage('Setup Node') {
             steps {
@@ -29,12 +42,6 @@ pipeline {
             }
         }
 
-        stage('Checkout') {
-            steps {
-                git branch: 'main', url: 'https://github.com/codewithkathir/insight.git'
-            }
-        }
-
         stage('Install Dependencies') {
             steps {
                 sh '''
@@ -47,7 +54,7 @@ pipeline {
             }
         }
 
-        stage('Build') {
+        stage('Build Next.js App') {
             steps {
                 sh '''
                 export NVM_DIR="$NVM_DIR"
@@ -66,15 +73,40 @@ pipeline {
                 . "$NVM_DIR/nvm.sh"
                 nvm use $NODE_VERSION
 
-                rm -rf $APP_DIR/*
-                cp -r * $APP_DIR
+                # Ensure target directory exists
+                mkdir -p $APP_DIR
+
+                # Copy build safely (no node_modules copy)
+                rsync -av --delete \
+                  --exclude node_modules \
+                  --exclude .git \
+                  --exclude .next \
+                  ./ $APP_DIR/
 
                 cd $APP_DIR
 
-                pm2 restart insight-app || pm2 start npm --name "insight-app" -- start
+                # Install production deps only
+                npm install --production
+
+                # Start / Restart with PM2
+                if pm2 describe $APP_NAME > /dev/null; then
+                    pm2 restart $APP_NAME
+                else
+                    pm2 start npm --name "$APP_NAME" -- start
+                fi
+
                 pm2 save
                 '''
             }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Deployment Successful"
+        }
+        failure {
+            echo "❌ Deployment Failed"
         }
     }
 }
