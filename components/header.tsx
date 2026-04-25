@@ -30,7 +30,7 @@ export function Header() {
             <Link href="#about" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
               About
             </Link>
-            <Link href="#services" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
+            <Link href="/services/seo" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
               Services
             </Link>
             <Link href="#process" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
