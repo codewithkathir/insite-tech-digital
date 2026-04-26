@@ -18,7 +18,22 @@ pipeline {
 
         stage('Checkout Code') {
             steps {
-                git branch: 'main', url: 'https://github.com/codewithkathir/insite-tech-digital.git'
+                checkout([
+                  $class: 'GitSCM',
+                  branches: [[name: '*/main']],
+                  userRemoteConfigs: [[
+                    url: 'https://github.com/codewithkathir/insite-tech-digital.git'
+                    // 👉 If private repo, add:
+                    // credentialsId: 'github-token'
+                  ]],
+                  extensions: [[$class: 'CleanBeforeCheckout']]
+                ])
+            }
+        }
+
+        stage('Verify Latest Commit') {
+            steps {
+                sh 'git log -1'
             }
         }
 
@@ -32,36 +47,11 @@ pipeline {
                 fi
 
                 . "$NVM_DIR/nvm.sh"
-
                 nvm install $NODE_VERSION
                 nvm use $NODE_VERSION
 
                 node -v
                 npm -v
-                '''
-            }
-        }
-
-        stage('Install Dependencies') {
-            steps {
-                sh '''
-                export NVM_DIR="$NVM_DIR"
-                . "$NVM_DIR/nvm.sh"
-                nvm use $NODE_VERSION
-
-                npm install
-                '''
-            }
-        }
-
-        stage('Build Next.js App') {
-            steps {
-                sh '''
-                export NVM_DIR="$NVM_DIR"
-                . "$NVM_DIR/nvm.sh"
-                nvm use $NODE_VERSION
-
-                npm run build
                 '''
             }
         }
@@ -73,27 +63,26 @@ pipeline {
                 . "$NVM_DIR/nvm.sh"
                 nvm use $NODE_VERSION
 
-                # Ensure target directory exists
+                # 🔥 REMOVE OLD APP COMPLETELY
+                rm -rf $APP_DIR
+
                 mkdir -p $APP_DIR
 
-                # Copy build safely (no node_modules copy)
+                # ✅ COPY NEW CODE
                 rsync -av --delete \
                   --exclude node_modules \
                   --exclude .git \
-                  --exclude .next \
                   ./ $APP_DIR/
 
                 cd $APP_DIR
 
-                # Install production deps only
-                npm install --production
+                # ✅ INSTALL + BUILD (on server)
+                npm install
+                npm run build
 
-                # Start / Restart with PM2
-                if pm2 describe $APP_NAME > /dev/null; then
-                    pm2 restart $APP_NAME
-                else
-                    pm2 start npm --name "$APP_NAME" -- start
-                fi
+                # ✅ CLEAN PM2 RESTART
+                pm2 delete $APP_NAME || true
+                pm2 start npm --name "$APP_NAME" -- start
 
                 pm2 save
                 '''
