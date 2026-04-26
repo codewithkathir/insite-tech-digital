@@ -18,7 +18,7 @@ pipeline {
 
         stage('Checkout Code') {
             steps {
-                git branch: 'main', url: 'https://github.com/codewithkathir/insight-tech-digital.git'
+                git branch: 'main', url: 'https://github.com/codewithkathir/insite-tech-digital.git'
             }
         }
 
